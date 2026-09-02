@@ -1,69 +1,144 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { Difficulty, Round } from "@/lib/types";
+import { applyRoundResult, loadProgress, saveProgress } from "@/lib/progress";
+import type { Progress } from "@/lib/progress";
+import {
+  buildMatchChallenges,
+  buildBuilderChallenges,
+  buildBlankChallenges,
+  buildPhonicsChallenges,
+} from "@/lib/buildChallenges";
+import StartScreen from "@/components/StartScreen";
+import LoadingQuest from "@/components/LoadingQuest";
+import ProgressHeader from "@/components/ProgressHeader";
+import ChallengeRound from "@/components/ChallengeRound";
+import RoundSummary from "@/components/RoundSummary";
+
+type Phase = "start" | "loading" | "match" | "build" | "blank" | "phonics" | "summary" | "error";
+
+const STAGES: { phase: Phase; title: string; icon: string }[] = [
+  { phase: "match", title: "Word Match", icon: "🔍" },
+  { phase: "build", title: "Word Builder", icon: "🧩" },
+  { phase: "blank", title: "Fill the Blank", icon: "✏️" },
+  { phase: "phonics", title: "Listen & Choose", icon: "🔊" },
+];
 
 export default function Home() {
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [phase, setPhase] = useState<Phase>("start");
+  const [round, setRound] = useState<Round | null>(null);
+  const [roundCorrect, setRoundCorrect] = useState(0);
+  const [roundMissed, setRoundMissed] = useState<string[]>([]);
+  const [xpEarned, setXpEarned] = useState(0);
+
+  useEffect(() => {
+    setProgress(loadProgress());
+  }, []);
+
+  const challengeSets = useMemo(() => {
+    if (!round) return null;
+    return {
+      match: buildMatchChallenges(round),
+      build: buildBuilderChallenges(round),
+      blank: buildBlankChallenges(round),
+      phonics: buildPhonicsChallenges(round),
+    };
+  }, [round]);
+
+  async function startQuest(difficulty: Difficulty, theme: string) {
+    setPhase("loading");
+    setRoundCorrect(0);
+    setRoundMissed([]);
+    try {
+      const res = await fetch("/api/generate-round", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ difficulty, theme }),
+      });
+      if (!res.ok) throw new Error("generation failed");
+      const data: Round = await res.json();
+      setRound(data);
+      setPhase("match");
+    } catch {
+      setPhase("error");
+    }
+  }
+
+  function handleStageComplete(correct: number, missed: string[]) {
+    setRoundCorrect((c) => c + correct);
+    setRoundMissed((m) => [...m, ...missed]);
+
+    const currentIndex = STAGES.findIndex((s) => s.phase === phase);
+    const next = STAGES[currentIndex + 1];
+
+    if (next) {
+      setPhase(next.phase);
+    } else if (progress) {
+      const totalCorrect = roundCorrect + correct;
+      const totalMissed = [...roundMissed, ...missed];
+      const totalQuestions = STAGES.length * (round?.words.length ?? 5);
+      const updated = applyRoundResult(progress, totalCorrect, totalQuestions, totalMissed);
+      setXpEarned(updated.xp - progress.xp);
+      setProgress(updated);
+      saveProgress(updated);
+      setPhase("summary");
+    }
+  }
+
+  if (!progress) return null;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="flex-1 flex flex-col px-4 py-10 bg-gradient-to-b from-amber-50 via-white to-white">
+      {phase !== "start" && phase !== "loading" && <ProgressHeader progress={progress} />}
+
+      {phase === "start" && (
+        <StartScreen defaultDifficulty={progress.difficulty} onStart={startQuest} />
+      )}
+
+      {phase === "loading" && <LoadingQuest />}
+
+      {phase === "error" && (
+        <div className="max-w-xl mx-auto text-center">
+          <div className="text-5xl mb-4">😕</div>
+          <p className="text-slate-600 mb-6">
+            Couldn&apos;t generate a quest. Check your Anthropic API key and try again.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setPhase("start")}
+            className="rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-bold px-6 py-3 shadow transition"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Back to Start
+          </button>
         </div>
-      </main>
-    </div>
+      )}
+
+      {round &&
+        challengeSets &&
+        STAGES.map(
+          (stage) =>
+            phase === stage.phase && (
+              <ChallengeRound
+                key={stage.phase}
+                title={stage.title}
+                icon={stage.icon}
+                challenges={challengeSets[stage.phase as keyof typeof challengeSets]}
+                onComplete={handleStageComplete}
+              />
+            ),
+        )}
+
+      {phase === "summary" && round && (
+        <RoundSummary
+          round={round}
+          correctCount={roundCorrect}
+          totalCount={STAGES.length * round.words.length}
+          missedWords={Array.from(new Set(roundMissed))}
+          xpEarned={xpEarned}
+          onContinue={() => setPhase("start")}
+        />
+      )}
+    </main>
   );
 }
