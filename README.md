@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LexiQuest 📖✨
 
-## Getting Started
+An AI-powered vocabulary & phonics quest game for ESL and broad literacy learners — built for the [Nerdy AI Hackathon Challenge](https://hackathon.nerdy.com/) (English Reading Game track).
 
-First, run the development server:
+## What it does
+
+LexiQuest generates an endless stream of themed vocabulary rounds using Claude, then turns each round into four short mini-games:
+
+1. **Word Match** — match an emoji + definition to the right word
+2. **Word Builder** — reassemble a word from its syllables
+3. **Fill the Blank** — pick the word that completes a themed sentence
+4. **Listen & Choose** — hear the word spoken aloud and pick it out (phonics/listening)
+
+Difficulty adapts automatically: a perfect round nudges the learner up a level (beginner → intermediate → advanced), a rough round eases back down. XP, levels, streaks, and a personal "words to review" list persist locally between sessions.
+
+## How it's built
+
+- **Next.js (App Router) + TypeScript + Tailwind CSS**
+- **Claude (`claude-opus-5`)** generates each round's words, definitions, syllable breakdowns, and fill-in-the-blank sentences as structured JSON via a server-side API route (`app/api/generate-round`)
+- **Web Speech API** (`speechSynthesis`) for word pronunciation — no extra service needed
+- **localStorage** for per-learner progress (no auth/backend required for the demo)
+- **Vitest** unit tests for the leveling/progress logic
+
+## Getting started
 
 ```bash
+npm install
+cp env.example .env.local   # add your ANTHROPIC_API_KEY
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000), pick a level and theme, and start a quest.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+## What's next
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Speech-to-text read-aloud scoring for a fluency-coaching mode
+- Spaced-repetition review sessions built from the "words to review" deck
+- Shareable classroom/parent progress view
