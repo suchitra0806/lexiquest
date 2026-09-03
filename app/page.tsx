@@ -34,6 +34,8 @@ export default function Home() {
   const [xpEarned, setXpEarned] = useState(0);
 
   useEffect(() => {
+    // localStorage is unavailable during SSR, so progress must load post-mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProgress(loadProgress());
   }, []);
 
