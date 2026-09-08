@@ -4,14 +4,16 @@ import type { Round, Difficulty } from "@/lib/types";
 import { THEMES } from "@/lib/types";
 import { buildRoundSchema } from "@/lib/schema";
 import { pickFallbackRound } from "@/lib/fallbackRounds";
+import { DIFFICULTY_RUBRIC } from "@/lib/difficultyRubric";
 
 const anthropic = new Anthropic();
 const MAX_ATTEMPTS = 2;
 
 function buildPrompt(difficulty: Difficulty, theme: string) {
+  const rubric = DIFFICULTY_RUBRIC[difficulty];
   return `Generate one vocabulary and phonics quest round for someone learning English literacy (ESL / broad literacy learner).
 
-Difficulty: ${difficulty}
+Difficulty: ${difficulty} (${rubric.cefrBand})
 Theme: ${theme}
 
 Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this shape:
@@ -45,16 +47,18 @@ Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this
 
 Rules:
 - Exactly 5 entries in "words" and exactly 5 entries in "sentences", in the same order, both about the theme "${theme}".
-- Vocabulary and sentence complexity must be strictly appropriate for a ${difficulty} English learner.
+- Word difficulty (${rubric.cefrBand}): ${rubric.wordGuidance}
+- Sentence difficulty (${rubric.cefrBand}): ${rubric.sentenceGuidance}
 - Do not repeat words across the round.
 - The "passage" must be answerable using only information stated in its own "text" - do not require outside knowledge.
 - Output nothing besides the JSON object.`;
 }
 
 function buildReviewPrompt(words: string[], difficulty: Difficulty) {
+  const rubric = DIFFICULTY_RUBRIC[difficulty];
   return `Generate a vocabulary and phonics review round for someone learning English literacy (ESL / broad literacy learner), reusing EXACTLY these words the learner previously missed, in this order: ${words.join(", ")}.
 
-Difficulty: ${difficulty}
+Difficulty: ${difficulty} (${rubric.cefrBand})
 
 Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this shape:
 
@@ -87,6 +91,7 @@ Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this
 
 Rules:
 - Use exactly the ${words.length} given words, in order, once each, as both the "words" entries and the "sentences" answers.
+- Sentence difficulty (${rubric.cefrBand}): ${rubric.sentenceGuidance}
 - Do not substitute, skip, or add any words.
 - The "passage" must be answerable using only information stated in its own "text" - do not require outside knowledge.
 - Output nothing besides the JSON object.`;
