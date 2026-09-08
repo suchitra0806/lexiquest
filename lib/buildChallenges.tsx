@@ -64,6 +64,23 @@ export function buildPhonicsChallenges(round: Round): Challenge[] {
   }));
 }
 
+export function buildComprehensionChallenges(round: Round): Challenge[] {
+  const { passage } = round;
+  return [
+    {
+      key: "comprehension",
+      prompt: (
+        <div className="text-left">
+          <p className="text-slate-600 leading-relaxed mb-4">{passage.text}</p>
+          <p className="font-semibold text-slate-800">{passage.question}</p>
+        </div>
+      ),
+      correctAnswer: passage.answer,
+      choices: [passage.answer, ...passage.distractors],
+    },
+  ];
+}
+
 function PhonicsPrompt({ word }: { word: string }) {
   return (
     <div className="flex flex-col items-center gap-3">
