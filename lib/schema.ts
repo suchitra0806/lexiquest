@@ -15,6 +15,13 @@ const questSentenceSchema = z.object({
   distractors: z.array(z.string().min(1)).length(3),
 });
 
+const passageSchema = z.object({
+  text: z.string().min(1),
+  question: z.string().min(1),
+  answer: z.string().min(1),
+  distractors: z.array(z.string().min(1)).length(3),
+});
+
 const difficultySchema = z.custom<Difficulty>(
   (v) => v === "beginner" || v === "intermediate" || v === "advanced",
 );
@@ -25,5 +32,6 @@ export function buildRoundSchema(expectedWordCount: number) {
     difficulty: difficultySchema,
     words: z.array(questWordSchema).length(expectedWordCount),
     sentences: z.array(questSentenceSchema).length(expectedWordCount),
+    passage: passageSchema,
   });
 }

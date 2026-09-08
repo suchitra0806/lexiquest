@@ -16,12 +16,20 @@ const validSentence = {
   distractors: ["hat", "big", "top"],
 };
 
+const validPassage = {
+  text: "A cat sat on a mat. The cat was happy.",
+  question: "Where did the cat sit?",
+  answer: "on a mat",
+  distractors: ["on a chair", "in a box", "on the roof"],
+};
+
 function roundOf(count: number) {
   return {
     theme: "animals",
     difficulty: "beginner",
     words: Array.from({ length: count }, (_, i) => ({ ...validWord, word: `word${i}` })),
     sentences: Array.from({ length: count }, () => validSentence),
+    passage: validPassage,
   };
 }
 
@@ -47,6 +55,13 @@ describe("buildRoundSchema", () => {
     const schema = buildRoundSchema(1);
     const bad = roundOf(1);
     bad.words[0] = { ...validWord, distractors: ["only", "two"] };
+    expect(schema.safeParse(bad).success).toBe(false);
+  });
+
+  it("rejects a round missing its comprehension passage", () => {
+    const schema = buildRoundSchema(1);
+    const bad: Partial<ReturnType<typeof roundOf>> = roundOf(1);
+    delete bad.passage;
     expect(schema.safeParse(bad).success).toBe(false);
   });
 });

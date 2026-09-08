@@ -9,6 +9,7 @@ import {
   buildBuilderChallenges,
   buildBlankChallenges,
   buildPhonicsChallenges,
+  buildComprehensionChallenges,
 } from "@/lib/buildChallenges";
 import StartScreen from "@/components/StartScreen";
 import LoadingQuest from "@/components/LoadingQuest";
@@ -16,13 +17,23 @@ import ProgressHeader from "@/components/ProgressHeader";
 import ChallengeRound from "@/components/ChallengeRound";
 import RoundSummary from "@/components/RoundSummary";
 
-type Phase = "start" | "loading" | "match" | "build" | "blank" | "phonics" | "summary" | "error";
+type Phase =
+  | "start"
+  | "loading"
+  | "match"
+  | "build"
+  | "blank"
+  | "phonics"
+  | "comprehension"
+  | "summary"
+  | "error";
 
 const STAGES: { phase: Phase; title: string; icon: string }[] = [
   { phase: "match", title: "Word Match", icon: "🔍" },
   { phase: "build", title: "Word Builder", icon: "🧩" },
   { phase: "blank", title: "Fill the Blank", icon: "✏️" },
   { phase: "phonics", title: "Listen & Choose", icon: "🔊" },
+  { phase: "comprehension", title: "Read & Understand", icon: "📘" },
 ];
 
 export default function Home() {
@@ -47,8 +58,13 @@ export default function Home() {
       build: buildBuilderChallenges(round),
       blank: buildBlankChallenges(round),
       phonics: buildPhonicsChallenges(round),
+      comprehension: buildComprehensionChallenges(round),
     };
   }, [round]);
+
+  const totalQuestions = challengeSets
+    ? Object.values(challengeSets).reduce((sum, challenges) => sum + challenges.length, 0)
+    : 0;
 
   async function startQuest(difficulty: Difficulty, theme: string) {
     setPhase("loading");
@@ -92,8 +108,12 @@ export default function Home() {
   }
 
   function handleStageComplete(correct: number, missed: string[]) {
+    // The comprehension answer is a phrase, not a vocabulary word, so keep
+    // it out of the missed-word review deck while still counting it toward
+    // round accuracy and XP.
+    const missedForReview = phase === "comprehension" ? [] : missed;
     setRoundCorrect((c) => c + correct);
-    setRoundMissed((m) => [...m, ...missed]);
+    setRoundMissed((m) => [...m, ...missedForReview]);
 
     const currentIndex = STAGES.findIndex((s) => s.phase === phase);
     const next = STAGES[currentIndex + 1];
@@ -102,8 +122,7 @@ export default function Home() {
       setPhase(next.phase);
     } else if (progress) {
       const totalCorrect = roundCorrect + correct;
-      const totalMissed = [...roundMissed, ...missed];
-      const totalQuestions = STAGES.length * (round?.words.length ?? 5);
+      const totalMissed = [...roundMissed, ...missedForReview];
       const updated = isReviewMode
         ? applyReviewResult(
             progress,
@@ -170,7 +189,7 @@ export default function Home() {
         <RoundSummary
           round={round}
           correctCount={roundCorrect}
-          totalCount={STAGES.length * round.words.length}
+          totalCount={totalQuestions}
           missedWords={Array.from(new Set(roundMissed))}
           xpEarned={xpEarned}
           onContinue={() => setPhase("start")}

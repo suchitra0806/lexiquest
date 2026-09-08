@@ -14,11 +14,19 @@ export interface QuestSentence {
   distractors: string[];
 }
 
+export interface ComprehensionPassage {
+  text: string;
+  question: string;
+  answer: string;
+  distractors: string[];
+}
+
 export interface Round {
   theme: string;
   difficulty: Difficulty;
   words: QuestWord[];
   sentences: QuestSentence[];
+  passage: ComprehensionPassage;
 }
 
 export const THEMES = [

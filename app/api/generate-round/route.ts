@@ -34,13 +34,20 @@ Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this
       "answer": string (must exactly match the word for this entry, lowercase),
       "distractors": string[] (exactly 3 other words that would NOT fit grammatically or logically in this sentence)
     }
-  ]
+  ],
+  "passage": {
+    "text": string (2-3 short, simple sentences telling a little story or fact about the theme "${theme}", naturally using 2-3 of the words above, appropriate for a ${difficulty} learner),
+    "question": string (one simple comprehension question about what the passage says, e.g. "What did the dog do?"),
+    "answer": string (the short, correct answer to the question, taken from or implied by the passage),
+    "distractors": string[] (exactly 3 other short answers that do NOT match what the passage says)
+  }
 }
 
 Rules:
 - Exactly 5 entries in "words" and exactly 5 entries in "sentences", in the same order, both about the theme "${theme}".
 - Vocabulary and sentence complexity must be strictly appropriate for a ${difficulty} English learner.
 - Do not repeat words across the round.
+- The "passage" must be answerable using only information stated in its own "text" - do not require outside knowledge.
 - Output nothing besides the JSON object.`;
 }
 
@@ -69,12 +76,19 @@ Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this
       "answer": string (must exactly match the word for this entry, lowercase),
       "distractors": string[] (exactly 3 other words that would NOT fit grammatically or logically in this sentence)
     }
-  ]
+  ],
+  "passage": {
+    "text": string (2-3 short, simple sentences telling a little story or fact that naturally uses 2-3 of the given words, appropriate for a ${difficulty} learner),
+    "question": string (one simple comprehension question about what the passage says),
+    "answer": string (the short, correct answer to the question, taken from or implied by the passage),
+    "distractors": string[] (exactly 3 other short answers that do NOT match what the passage says)
+  }
 }
 
 Rules:
 - Use exactly the ${words.length} given words, in order, once each, as both the "words" entries and the "sentences" answers.
 - Do not substitute, skip, or add any words.
+- The "passage" must be answerable using only information stated in its own "text" - do not require outside knowledge.
 - Output nothing besides the JSON object.`;
 }
 

@@ -21,6 +21,12 @@ export const FALLBACK_ROUNDS: Round[] = [
       { text: "The ___ sang a song from the top of the tree.", answer: "bird", distractors: ["word", "desk", "milk"] },
       { text: "The ___ hopped quickly through the tall grass.", answer: "rabbit", distractors: ["ticket", "pencil", "window"] },
     ],
+    passage: {
+      text: "Mia has a pet rabbit. The rabbit likes to eat fresh green food and hop around the yard.",
+      question: "What does Mia's rabbit like to do?",
+      answer: "hop around the yard",
+      distractors: ["swim in a lake", "sleep in a tree", "fly over the fence"],
+    },
   },
   {
     theme: "food",
@@ -39,6 +45,12 @@ export const FALLBACK_ROUNDS: Round[] = [
       { text: "He cracked an ___ into the pan for breakfast.", answer: "egg", distractors: ["leg", "top", "sun"] },
       { text: "She peeled the ___ before eating it.", answer: "banana", distractors: ["umbrella", "computer", "elephant"] },
     ],
+    passage: {
+      text: "Ben made breakfast this morning. He cracked an egg into a pan and ate it with warm bread.",
+      question: "What did Ben eat with his egg?",
+      answer: "warm bread",
+      distractors: ["cold milk", "a banana peel", "a red apple"],
+    },
   },
 ];
 
