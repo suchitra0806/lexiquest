@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Round, Difficulty } from "@/lib/types";
 import { THEMES } from "@/lib/types";
+import { buildRoundSchema } from "@/lib/schema";
+import { pickFallbackRound } from "@/lib/fallbackRounds";
 
 const anthropic = new Anthropic();
+const MAX_ATTEMPTS = 2;
 
 function buildPrompt(difficulty: Difficulty, theme: string) {
   return `Generate one vocabulary and phonics quest round for someone learning English literacy (ESL / broad literacy learner).
@@ -75,6 +78,40 @@ Rules:
 - Output nothing besides the JSON object.`;
 }
 
+const CORRECTION_NOTE =
+  "\n\nYour previous attempt returned invalid or malformed output. Follow the required JSON shape and rules exactly this time.";
+
+async function requestRound(prompt: string, expectedWordCount: number): Promise<Round | null> {
+  const schema = buildRoundSchema(expectedWordCount);
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 4096,
+      output_config: { effort: "low" },
+      messages: [{ role: "user", content: attempt === 0 ? prompt : prompt + CORRECTION_NOTE }],
+    });
+
+    const textBlock = response.content.find(
+      (block): block is Anthropic.TextBlock => block.type === "text",
+    );
+    const jsonMatch = textBlock?.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) continue;
+
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(jsonMatch[0]);
+    } catch {
+      continue;
+    }
+
+    const parsed = schema.safeParse(candidate);
+    if (parsed.success) return parsed.data;
+  }
+
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   let body: { difficulty?: Difficulty; theme?: string; words?: string[] } = {};
   try {
@@ -86,40 +123,27 @@ export async function POST(req: NextRequest) {
   const difficulty: Difficulty = body.difficulty ?? "beginner";
   const reviewWords = body.words?.filter((w) => typeof w === "string" && w.trim().length > 0);
   const theme = body.theme ?? THEMES[Math.floor(Math.random() * THEMES.length)];
+  const isReview = Boolean(reviewWords && reviewWords.length > 0);
 
-  const prompt =
-    reviewWords && reviewWords.length > 0
-      ? buildReviewPrompt(reviewWords, difficulty)
-      : buildPrompt(difficulty, theme);
+  const prompt = isReview
+    ? buildReviewPrompt(reviewWords as string[], difficulty)
+    : buildPrompt(difficulty, theme);
+  const expectedWordCount = isReview ? (reviewWords as string[]).length : 5;
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 4096,
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: prompt }],
-    });
+    const round = await requestRound(prompt, expectedWordCount);
+    if (round) return NextResponse.json(round);
 
-    const textBlock = response.content.find(
-      (block): block is Anthropic.TextBlock => block.type === "text",
-    );
-    if (!textBlock) {
-      return NextResponse.json({ error: "No content generated" }, { status: 502 });
+    if (isReview) {
+      return NextResponse.json({ error: "Failed to generate review round" }, { status: 502 });
     }
-
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Malformed AI response" }, { status: 502 });
-    }
-
-    const round = JSON.parse(jsonMatch[0]) as Round;
-    if (!Array.isArray(round.words) || !Array.isArray(round.sentences)) {
-      return NextResponse.json({ error: "Malformed round shape" }, { status: 502 });
-    }
-
-    return NextResponse.json(round);
+    console.error("generate-round: falling back to a static round after invalid AI output");
+    return NextResponse.json(pickFallbackRound());
   } catch (err) {
     console.error("generate-round failed:", err);
-    return NextResponse.json({ error: "Failed to generate round" }, { status: 500 });
+    if (isReview) {
+      return NextResponse.json({ error: "Failed to generate round" }, { status: 500 });
+    }
+    return NextResponse.json(pickFallbackRound());
   }
 }
