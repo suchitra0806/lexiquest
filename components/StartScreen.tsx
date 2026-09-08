@@ -13,9 +13,13 @@ const DIFFICULTIES: { value: Difficulty; label: string; hint: string }[] = [
 export default function StartScreen({
   defaultDifficulty,
   onStart,
+  missedWordsCount,
+  onReview,
 }: {
   defaultDifficulty: Difficulty;
   onStart: (difficulty: Difficulty, theme: string) => void;
+  missedWordsCount: number;
+  onReview: () => void;
 }) {
   const [difficulty, setDifficulty] = useState<Difficulty>(defaultDifficulty);
   const [theme, setTheme] = useState<string>("random");
@@ -76,6 +80,15 @@ export default function StartScreen({
           ))}
         </div>
       </div>
+
+      {missedWordsCount > 0 && (
+        <button
+          onClick={onReview}
+          className="w-full mb-3 rounded-xl border-2 border-amber-300 text-amber-700 font-semibold py-2.5 hover:bg-amber-50 transition"
+        >
+          📚 Review {missedWordsCount} missed word{missedWordsCount === 1 ? "" : "s"}
+        </button>
+      )}
 
       <button
         onClick={() =>

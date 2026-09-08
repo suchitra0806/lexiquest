@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyRoundResult } from "../progress";
+import { applyReviewResult, applyRoundResult } from "../progress";
 import type { Progress } from "../progress";
 
 const base: Progress = {
@@ -51,5 +51,30 @@ describe("applyRoundResult", () => {
     const result = applyRoundResult(base, 0, 5, manyMisses);
     expect(result.missedWords).toHaveLength(20);
     expect(result.missedWords).toEqual(manyMisses.slice(-20));
+  });
+});
+
+describe("applyReviewResult", () => {
+  const reviewing: Progress = { ...base, missedWords: ["cat", "dog", "bird"] };
+
+  it("clears words answered correctly from the missed list", () => {
+    const result = applyReviewResult(reviewing, 3, ["cat", "dog", "bird"], []);
+    expect(result.missedWords).toEqual([]);
+  });
+
+  it("keeps words that were missed again", () => {
+    const result = applyReviewResult(reviewing, 2, ["cat", "dog", "bird"], ["dog"]);
+    expect(result.missedWords).toEqual(["dog"]);
+  });
+
+  it("awards XP for correct answers at a lighter rate than fresh rounds", () => {
+    const result = applyReviewResult(reviewing, 3, ["cat", "dog", "bird"], []);
+    expect(result.xp).toBe(3 * 5);
+  });
+
+  it("does not touch difficulty or streak", () => {
+    const result = applyReviewResult({ ...reviewing, difficulty: "intermediate", streak: 2 }, 0, ["cat"], ["cat"]);
+    expect(result.difficulty).toBe("intermediate");
+    expect(result.streak).toBe(2);
   });
 });

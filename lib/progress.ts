@@ -83,4 +83,22 @@ export function clearMissedWord(progress: Progress, word: string): Progress {
   return { ...progress, missedWords: progress.missedWords.filter((w) => w !== word) };
 }
 
+export function applyReviewResult(
+  progress: Progress,
+  correctCount: number,
+  reviewedWords: string[],
+  stillMissed: string[],
+): Progress {
+  const earnedXp = correctCount * 5;
+  const xp = progress.xp + earnedXp;
+  const cleared = new Set(reviewedWords.filter((w) => !stillMissed.includes(w)));
+
+  return {
+    ...progress,
+    xp,
+    level: levelForXp(xp),
+    missedWords: Array.from(new Set([...progress.missedWords.filter((w) => !cleared.has(w)), ...stillMissed])),
+  };
+}
+
 export { XP_PER_LEVEL };

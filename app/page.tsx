@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Difficulty, Round } from "@/lib/types";
-import { applyRoundResult, loadProgress, saveProgress } from "@/lib/progress";
+import { applyReviewResult, applyRoundResult, loadProgress, saveProgress } from "@/lib/progress";
 import type { Progress } from "@/lib/progress";
 import {
   buildMatchChallenges,
@@ -32,6 +32,7 @@ export default function Home() {
   const [roundCorrect, setRoundCorrect] = useState(0);
   const [roundMissed, setRoundMissed] = useState<string[]>([]);
   const [xpEarned, setXpEarned] = useState(0);
+  const [isReviewMode, setIsReviewMode] = useState(false);
 
   useEffect(() => {
     // localStorage is unavailable during SSR, so progress must load post-mount.
@@ -53,11 +54,33 @@ export default function Home() {
     setPhase("loading");
     setRoundCorrect(0);
     setRoundMissed([]);
+    setIsReviewMode(false);
     try {
       const res = await fetch("/api/generate-round", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ difficulty, theme }),
+      });
+      if (!res.ok) throw new Error("generation failed");
+      const data: Round = await res.json();
+      setRound(data);
+      setPhase("match");
+    } catch {
+      setPhase("error");
+    }
+  }
+
+  async function startReview() {
+    if (!progress || progress.missedWords.length === 0) return;
+    setPhase("loading");
+    setRoundCorrect(0);
+    setRoundMissed([]);
+    setIsReviewMode(true);
+    try {
+      const res = await fetch("/api/generate-round", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ difficulty: progress.difficulty, words: progress.missedWords }),
       });
       if (!res.ok) throw new Error("generation failed");
       const data: Round = await res.json();
@@ -81,7 +104,14 @@ export default function Home() {
       const totalCorrect = roundCorrect + correct;
       const totalMissed = [...roundMissed, ...missed];
       const totalQuestions = STAGES.length * (round?.words.length ?? 5);
-      const updated = applyRoundResult(progress, totalCorrect, totalQuestions, totalMissed);
+      const updated = isReviewMode
+        ? applyReviewResult(
+            progress,
+            totalCorrect,
+            round?.words.map((w) => w.word) ?? [],
+            Array.from(new Set(totalMissed)),
+          )
+        : applyRoundResult(progress, totalCorrect, totalQuestions, totalMissed);
       setXpEarned(updated.xp - progress.xp);
       setProgress(updated);
       saveProgress(updated);
@@ -96,7 +126,12 @@ export default function Home() {
       {phase !== "start" && phase !== "loading" && <ProgressHeader progress={progress} />}
 
       {phase === "start" && (
-        <StartScreen defaultDifficulty={progress.difficulty} onStart={startQuest} />
+        <StartScreen
+          defaultDifficulty={progress.difficulty}
+          onStart={startQuest}
+          missedWordsCount={progress.missedWords.length}
+          onReview={startReview}
+        />
       )}
 
       {phase === "loading" && <LoadingQuest />}
