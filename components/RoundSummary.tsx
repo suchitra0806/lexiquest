@@ -1,5 +1,33 @@
 import type { Round } from "@/lib/types";
 
+const CONFETTI_EMOJI = ["🎉", "✨", "⭐", "🎊"];
+const CONFETTI_COUNT = 14;
+
+// Deterministic spread (not Math.random) so this stays a pure render - the
+// varied prime-step offsets still read as scattered confetti.
+const CONFETTI_PIECES = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+  id: i,
+  left: (i * 37) % 100,
+  delay: (i % 7) * 0.05,
+  emoji: CONFETTI_EMOJI[i % CONFETTI_EMOJI.length],
+}));
+
+function ConfettiBurst() {
+  return (
+    <div className="relative h-0 pointer-events-none select-none" aria-hidden="true">
+      {CONFETTI_PIECES.map((p) => (
+        <span
+          key={p.id}
+          className="absolute top-0 text-xl animate-confetti-fall"
+          style={{ left: `${p.left}%`, animationDelay: `${p.delay}s` }}
+        >
+          {p.emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function RoundSummary({
   round,
   correctCount,
@@ -20,7 +48,10 @@ export default function RoundSummary({
 
   return (
     <div className="max-w-xl mx-auto text-center">
-      <div className="text-6xl mb-4">{perfect ? "🏆" : accuracy >= 60 ? "🎉" : "💪"}</div>
+      {perfect && <ConfettiBurst />}
+      <div className="text-6xl mb-4 animate-trophy-pop">
+        {perfect ? "🏆" : accuracy >= 60 ? "🎉" : "💪"}
+      </div>
       <h2 className="text-2xl font-extrabold text-slate-800 mb-1 capitalize">
         {round.theme} quest complete!
       </h2>
