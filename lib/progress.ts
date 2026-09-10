@@ -8,6 +8,8 @@ export interface Progress {
   bestStreak: number;
   roundsCompleted: number;
   missedWords: string[];
+  upRoundStreak: number;
+  downRoundStreak: number;
 }
 
 const STORAGE_KEY = "lexiquest-progress-v1";
@@ -20,10 +22,15 @@ const DEFAULT_PROGRESS: Progress = {
   bestStreak: 0,
   roundsCompleted: 0,
   missedWords: [],
+  upRoundStreak: 0,
+  downRoundStreak: 0,
 };
 
 const XP_PER_LEVEL = 100;
 const DIFFICULTY_ORDER: Difficulty[] = ["beginner", "intermediate", "advanced"];
+// Require this many consecutive strong/weak rounds before shifting a level,
+// so one lucky or unlucky round doesn't swing difficulty on its own.
+const DIFFICULTY_SHIFT_THRESHOLD = 2;
 
 export function loadProgress(): Progress {
   if (typeof window === "undefined") return DEFAULT_PROGRESS;
@@ -45,15 +52,29 @@ function levelForXp(xp: number): number {
   return Math.max(1, Math.floor(xp / XP_PER_LEVEL) + 1);
 }
 
-function nextDifficulty(current: Difficulty, accuracy: number): Difficulty {
-  const idx = DIFFICULTY_ORDER.indexOf(current);
-  if (accuracy >= 0.9 && idx < DIFFICULTY_ORDER.length - 1) {
-    return DIFFICULTY_ORDER[idx + 1];
+function nextDifficultyState(
+  progress: Pick<Progress, "difficulty" | "upRoundStreak" | "downRoundStreak">,
+  accuracy: number,
+): Pick<Progress, "difficulty" | "upRoundStreak" | "downRoundStreak"> {
+  const idx = DIFFICULTY_ORDER.indexOf(progress.difficulty);
+
+  if (accuracy >= 0.9) {
+    const upRoundStreak = progress.upRoundStreak + 1;
+    if (upRoundStreak >= DIFFICULTY_SHIFT_THRESHOLD && idx < DIFFICULTY_ORDER.length - 1) {
+      return { difficulty: DIFFICULTY_ORDER[idx + 1], upRoundStreak: 0, downRoundStreak: 0 };
+    }
+    return { difficulty: progress.difficulty, upRoundStreak, downRoundStreak: 0 };
   }
-  if (accuracy < 0.5 && idx > 0) {
-    return DIFFICULTY_ORDER[idx - 1];
+
+  if (accuracy < 0.5) {
+    const downRoundStreak = progress.downRoundStreak + 1;
+    if (downRoundStreak >= DIFFICULTY_SHIFT_THRESHOLD && idx > 0) {
+      return { difficulty: DIFFICULTY_ORDER[idx - 1], upRoundStreak: 0, downRoundStreak: 0 };
+    }
+    return { difficulty: progress.difficulty, upRoundStreak: 0, downRoundStreak };
   }
-  return current;
+
+  return { difficulty: progress.difficulty, upRoundStreak: 0, downRoundStreak: 0 };
 }
 
 export function applyRoundResult(
@@ -71,7 +92,7 @@ export function applyRoundResult(
     ...progress,
     xp,
     level: levelForXp(xp),
-    difficulty: nextDifficulty(progress.difficulty, accuracy),
+    ...nextDifficultyState(progress, accuracy),
     streak,
     bestStreak: Math.max(progress.bestStreak, streak),
     roundsCompleted: progress.roundsCompleted + 1,
