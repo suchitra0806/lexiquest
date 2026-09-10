@@ -82,9 +82,21 @@ export default function ChallengeRound({
               key={choice}
               disabled={showState}
               onClick={() => handleChoice(choice)}
-              className={`rounded-xl border-2 py-3 px-4 font-semibold capitalize transition ${stateClasses}`}
+              className={`rounded-xl border-2 py-3 px-4 font-semibold capitalize transition flex items-center justify-center gap-2 ${stateClasses}`}
             >
-              {choice}
+              <span>{choice}</span>
+              {showState && isCorrectChoice && (
+                <span>
+                  <span aria-hidden="true">✓</span>
+                  <span className="sr-only"> Correct</span>
+                </span>
+              )}
+              {showState && isSelected && !isCorrectChoice && (
+                <span>
+                  <span aria-hidden="true">✗</span>
+                  <span className="sr-only"> Incorrect</span>
+                </span>
+              )}
             </button>
           );
         })}
