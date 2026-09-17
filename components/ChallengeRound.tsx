@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { shuffle } from "@/lib/shuffle";
 
@@ -53,7 +54,7 @@ export default function ChallengeRound({
     <div className="max-w-xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 font-bold text-slate-700">
-          <span className="text-2xl">{icon}</span> {title}
+          <Image src={icon} alt="" width={28} height={28} /> {title}
         </div>
         <div className="text-sm text-slate-400">
           {index + 1} / {challenges.length}

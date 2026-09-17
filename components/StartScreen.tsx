@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { THEMES } from "@/lib/types";
 import type { Difficulty } from "@/lib/types";
@@ -26,7 +27,7 @@ export default function StartScreen({
 
   return (
     <div className="max-w-xl mx-auto text-center">
-      <div className="text-6xl mb-4">📖✨</div>
+      <Image src="/icons/quest-logo.png" alt="" width={96} height={96} className="mx-auto mb-4" />
       <h1 className="text-4xl font-extrabold text-slate-800 mb-2">LexiQuest</h1>
       <p className="text-slate-500 mb-8">
         A vocabulary &amp; phonics quest that grows with you. New words, every round.
