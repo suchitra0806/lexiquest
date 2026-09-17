@@ -138,11 +138,19 @@ export default function Home() {
     }
   }
 
+  function exitRound() {
+    setPhase("start");
+  }
+
   if (!progress) return null;
+
+  const isRoundStage = STAGES.some((s) => s.phase === phase);
 
   return (
     <main className="flex-1 flex flex-col px-4 py-10 bg-gradient-to-b from-amber-50 via-white to-white">
-      {phase !== "start" && phase !== "loading" && <ProgressHeader progress={progress} />}
+      {phase !== "start" && phase !== "loading" && (
+        <ProgressHeader progress={progress} onExit={isRoundStage ? exitRound : undefined} />
+      )}
 
       {phase === "start" && (
         <StartScreen
