@@ -10,6 +10,8 @@ const base: Progress = {
   bestStreak: 0,
   roundsCompleted: 0,
   missedWords: [],
+  upRoundStreak: 0,
+  downRoundStreak: 0,
 };
 
 describe("applyRoundResult", () => {
@@ -23,19 +25,39 @@ describe("applyRoundResult", () => {
     expect(result.level).toBeGreaterThan(1);
   });
 
-  it("promotes difficulty on a perfect round", () => {
+  it("does not promote difficulty after a single perfect round", () => {
     const result = applyRoundResult(base, 5, 5, []);
-    expect(result.difficulty).toBe("intermediate");
-  });
-
-  it("demotes difficulty on a poor round", () => {
-    const result = applyRoundResult({ ...base, difficulty: "intermediate" }, 1, 5, []);
     expect(result.difficulty).toBe("beginner");
+    expect(result.upRoundStreak).toBe(1);
   });
 
-  it("keeps difficulty steady on a mediocre round", () => {
-    const result = applyRoundResult({ ...base, difficulty: "intermediate" }, 3, 5, []);
+  it("promotes difficulty after two consecutive perfect rounds", () => {
+    const afterFirst = applyRoundResult(base, 5, 5, []);
+    const afterSecond = applyRoundResult(afterFirst, 5, 5, []);
+    expect(afterSecond.difficulty).toBe("intermediate");
+    expect(afterSecond.upRoundStreak).toBe(0);
+  });
+
+  it("does not demote difficulty after a single poor round", () => {
+    const result = applyRoundResult({ ...base, difficulty: "intermediate" }, 1, 5, []);
     expect(result.difficulty).toBe("intermediate");
+    expect(result.downRoundStreak).toBe(1);
+  });
+
+  it("demotes difficulty after two consecutive poor rounds", () => {
+    const intermediate: Progress = { ...base, difficulty: "intermediate" };
+    const afterFirst = applyRoundResult(intermediate, 1, 5, []);
+    const afterSecond = applyRoundResult(afterFirst, 1, 5, []);
+    expect(afterSecond.difficulty).toBe("beginner");
+    expect(afterSecond.downRoundStreak).toBe(0);
+  });
+
+  it("keeps difficulty steady on a mediocre round and resets both streaks", () => {
+    const primed: Progress = { ...base, difficulty: "intermediate", upRoundStreak: 1 };
+    const result = applyRoundResult(primed, 3, 5, []);
+    expect(result.difficulty).toBe("intermediate");
+    expect(result.upRoundStreak).toBe(0);
+    expect(result.downRoundStreak).toBe(0);
   });
 
   it("resets streak on any miss and increments it on a perfect round", () => {
