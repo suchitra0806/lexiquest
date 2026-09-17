@@ -1,7 +1,13 @@
 import { XP_PER_LEVEL } from "@/lib/progress";
 import type { Progress } from "@/lib/progress";
 
-export default function ProgressHeader({ progress }: { progress: Progress }) {
+export default function ProgressHeader({
+  progress,
+  onExit,
+}: {
+  progress: Progress;
+  onExit?: () => void;
+}) {
   const xpIntoLevel = progress.xp % XP_PER_LEVEL;
   const pct = (xpIntoLevel / XP_PER_LEVEL) * 100;
 
@@ -22,6 +28,15 @@ export default function ProgressHeader({ progress }: { progress: Progress }) {
           {progress.streak > 1 ? ` · 🔥 ${progress.streak} round streak` : ""}
         </div>
       </div>
+      {onExit && (
+        <button
+          onClick={onExit}
+          aria-label="Exit quest"
+          className="text-sm text-slate-400 hover:text-slate-600 font-semibold shrink-0"
+        >
+          Exit
+        </button>
+      )}
     </div>
   );
 }
