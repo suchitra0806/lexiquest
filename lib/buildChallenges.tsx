@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { Round } from "./types";
 import type { Challenge } from "@/components/ChallengeRound";
 
@@ -82,6 +85,24 @@ export function buildComprehensionChallenges(round: Round): Challenge[] {
 }
 
 function PhonicsPrompt({ word }: { word: string }) {
+  const [supported, setSupported] = useState(true);
+
+  useEffect(() => {
+    import("./tts").then(({ isSpeechSupported }) => setSupported(isSpeechSupported()));
+  }, []);
+
+  if (!supported) {
+    return (
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="text-xs uppercase tracking-wide text-slate-400">Listen, then pick the word</div>
+        <div className="text-sm text-rose-600">
+          Audio isn&apos;t supported in this browser. Try Chrome, Edge, or Safari - or just take your best guess
+          below.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="text-xs uppercase tracking-wide text-slate-400">Listen, then pick the word</div>

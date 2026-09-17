@@ -1,5 +1,9 @@
+export function isSpeechSupported(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
 export function speak(text: string, rate = 0.9) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (!isSpeechSupported()) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = rate;
@@ -8,6 +12,6 @@ export function speak(text: string, rate = 0.9) {
 }
 
 export function stopSpeaking() {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (!isSpeechSupported()) return;
   window.speechSynthesis.cancel();
 }
