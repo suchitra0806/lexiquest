@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Round, Difficulty } from "@/lib/types";
 import { THEMES } from "@/lib/types";
+import { buildRoundSchema } from "@/lib/schema";
+import { pickFallbackRound } from "@/lib/fallbackRounds";
+import { DIFFICULTY_RUBRIC } from "@/lib/difficultyRubric";
 
 const anthropic = new Anthropic();
+const MAX_ATTEMPTS = 2;
 
 function buildPrompt(difficulty: Difficulty, theme: string) {
+  const rubric = DIFFICULTY_RUBRIC[difficulty];
   return `Generate one vocabulary and phonics quest round for someone learning English literacy (ESL / broad literacy learner).
 
-Difficulty: ${difficulty}
+Difficulty: ${difficulty} (${rubric.cefrBand})
 Theme: ${theme}
 
 Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this shape:
@@ -31,20 +36,29 @@ Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this
       "answer": string (must exactly match the word for this entry, lowercase),
       "distractors": string[] (exactly 3 other words that would NOT fit grammatically or logically in this sentence)
     }
-  ]
+  ],
+  "passage": {
+    "text": string (2-3 short, simple sentences telling a little story or fact about the theme "${theme}", naturally using 2-3 of the words above, appropriate for a ${difficulty} learner),
+    "question": string (one simple comprehension question about what the passage says, e.g. "What did the dog do?"),
+    "answer": string (the short, correct answer to the question, taken from or implied by the passage),
+    "distractors": string[] (exactly 3 other short answers that do NOT match what the passage says)
+  }
 }
 
 Rules:
 - Exactly 5 entries in "words" and exactly 5 entries in "sentences", in the same order, both about the theme "${theme}".
-- Vocabulary and sentence complexity must be strictly appropriate for a ${difficulty} English learner.
+- Word difficulty (${rubric.cefrBand}): ${rubric.wordGuidance}
+- Sentence difficulty (${rubric.cefrBand}): ${rubric.sentenceGuidance}
 - Do not repeat words across the round.
+- The "passage" must be answerable using only information stated in its own "text" - do not require outside knowledge.
 - Output nothing besides the JSON object.`;
 }
 
 function buildReviewPrompt(words: string[], difficulty: Difficulty) {
+  const rubric = DIFFICULTY_RUBRIC[difficulty];
   return `Generate a vocabulary and phonics review round for someone learning English literacy (ESL / broad literacy learner), reusing EXACTLY these words the learner previously missed, in this order: ${words.join(", ")}.
 
-Difficulty: ${difficulty}
+Difficulty: ${difficulty} (${rubric.cefrBand})
 
 Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this shape:
 
@@ -66,13 +80,55 @@ Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this
       "answer": string (must exactly match the word for this entry, lowercase),
       "distractors": string[] (exactly 3 other words that would NOT fit grammatically or logically in this sentence)
     }
-  ]
+  ],
+  "passage": {
+    "text": string (2-3 short, simple sentences telling a little story or fact that naturally uses 2-3 of the given words, appropriate for a ${difficulty} learner),
+    "question": string (one simple comprehension question about what the passage says),
+    "answer": string (the short, correct answer to the question, taken from or implied by the passage),
+    "distractors": string[] (exactly 3 other short answers that do NOT match what the passage says)
+  }
 }
 
 Rules:
 - Use exactly the ${words.length} given words, in order, once each, as both the "words" entries and the "sentences" answers.
+- Sentence difficulty (${rubric.cefrBand}): ${rubric.sentenceGuidance}
 - Do not substitute, skip, or add any words.
+- The "passage" must be answerable using only information stated in its own "text" - do not require outside knowledge.
 - Output nothing besides the JSON object.`;
+}
+
+const CORRECTION_NOTE =
+  "\n\nYour previous attempt returned invalid or malformed output. Follow the required JSON shape and rules exactly this time.";
+
+async function requestRound(prompt: string, expectedWordCount: number): Promise<Round | null> {
+  const schema = buildRoundSchema(expectedWordCount);
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 4096,
+      output_config: { effort: "low" },
+      messages: [{ role: "user", content: attempt === 0 ? prompt : prompt + CORRECTION_NOTE }],
+    });
+
+    const textBlock = response.content.find(
+      (block): block is Anthropic.TextBlock => block.type === "text",
+    );
+    const jsonMatch = textBlock?.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) continue;
+
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(jsonMatch[0]);
+    } catch {
+      continue;
+    }
+
+    const parsed = schema.safeParse(candidate);
+    if (parsed.success) return parsed.data;
+  }
+
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -86,40 +142,27 @@ export async function POST(req: NextRequest) {
   const difficulty: Difficulty = body.difficulty ?? "beginner";
   const reviewWords = body.words?.filter((w) => typeof w === "string" && w.trim().length > 0);
   const theme = body.theme ?? THEMES[Math.floor(Math.random() * THEMES.length)];
+  const isReview = Boolean(reviewWords && reviewWords.length > 0);
 
-  const prompt =
-    reviewWords && reviewWords.length > 0
-      ? buildReviewPrompt(reviewWords, difficulty)
-      : buildPrompt(difficulty, theme);
+  const prompt = isReview
+    ? buildReviewPrompt(reviewWords as string[], difficulty)
+    : buildPrompt(difficulty, theme);
+  const expectedWordCount = isReview ? (reviewWords as string[]).length : 5;
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 4096,
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: prompt }],
-    });
+    const round = await requestRound(prompt, expectedWordCount);
+    if (round) return NextResponse.json(round);
 
-    const textBlock = response.content.find(
-      (block): block is Anthropic.TextBlock => block.type === "text",
-    );
-    if (!textBlock) {
-      return NextResponse.json({ error: "No content generated" }, { status: 502 });
+    if (isReview) {
+      return NextResponse.json({ error: "Failed to generate review round" }, { status: 502 });
     }
-
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Malformed AI response" }, { status: 502 });
-    }
-
-    const round = JSON.parse(jsonMatch[0]) as Round;
-    if (!Array.isArray(round.words) || !Array.isArray(round.sentences)) {
-      return NextResponse.json({ error: "Malformed round shape" }, { status: 502 });
-    }
-
-    return NextResponse.json(round);
+    console.error("generate-round: falling back to a static round after invalid AI output");
+    return NextResponse.json(pickFallbackRound());
   } catch (err) {
     console.error("generate-round failed:", err);
-    return NextResponse.json({ error: "Failed to generate round" }, { status: 500 });
+    if (isReview) {
+      return NextResponse.json({ error: "Failed to generate round" }, { status: 500 });
+    }
+    return NextResponse.json(pickFallbackRound());
   }
 }
