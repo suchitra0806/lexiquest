@@ -29,11 +29,11 @@ type Phase =
   | "error";
 
 const STAGES: { phase: Phase; title: string; icon: string }[] = [
-  { phase: "match", title: "Word Match", icon: "🔍" },
-  { phase: "build", title: "Word Builder", icon: "🧩" },
-  { phase: "blank", title: "Fill the Blank", icon: "✏️" },
-  { phase: "phonics", title: "Listen & Choose", icon: "🔊" },
-  { phase: "comprehension", title: "Read & Understand", icon: "📘" },
+  { phase: "match", title: "Word Match", icon: "/icons/word-match.png" },
+  { phase: "build", title: "Word Builder", icon: "/icons/word-builder.png" },
+  { phase: "blank", title: "Fill the Blank", icon: "/icons/fill-blank.png" },
+  { phase: "phonics", title: "Listen & Choose", icon: "/icons/listen-choose.png" },
+  { phase: "comprehension", title: "Read & Understand", icon: "/icons/comprehension.png" },
 ];
 
 export default function Home() {
@@ -147,7 +147,7 @@ export default function Home() {
   const isRoundStage = STAGES.some((s) => s.phase === phase);
 
   return (
-    <main className="flex-1 flex flex-col px-4 py-10 bg-gradient-to-b from-amber-50 via-white to-white">
+    <main className="flex-1 flex flex-col px-4 py-10 bg-amber-50">
       {phase !== "start" && phase !== "loading" && (
         <ProgressHeader progress={progress} onExit={isRoundStage ? exitRound : undefined} />
       )}
